@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Municipality Dashboard — Khairahani</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Poppins",sans-serif;}
+body{background:#f4f6fb;display:flex;min-height:100vh;color:#0f172a;}
+.sidebar{width:250px;background:linear-gradient(180deg,#0f172a,#0b1220);color:#fff;position:fixed;height:100vh;left:0;top:0;padding:20px;
+  display:flex;flex-direction:column;}
+.sidebar h2{text-align:center;margin-bottom:20px;color:#7dd3fc;}
+.sidebar a{color:#e6eef7;text-decoration:none;padding:10px;border-radius:8px;display:block;margin-bottom:8px;transition:.18s;}
+.sidebar a:hover{background:rgba(255,255,255,0.04);transform:translateX(6px);}
+.sidebar .logout{margin-top:auto;background:#ef4444;color:#fff;border:none;padding:10px;border-radius:8px;cursor:pointer;font-weight:600;transition:.2s;}
+.sidebar .logout:hover{background:#dc2626;}
+.main{margin-left:270px;padding:24px;width:calc(100% - 270px);}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
+.brand{font-size:20px;font-weight:700;}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 6px 18px rgba(9,30,63,0.06);}
+label{display:block;margin:8px 0 6px;font-weight:600;}
+input[type="text"],textarea,input[type="file"]{width:100%;padding:10px;border-radius:8px;border:1px solid #e6eef7;margin-bottom:10px;}
+button{background:#0ea5a0;color:white;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600;}
+button:hover{opacity:.9;}
+.list{max-height:60vh;overflow:auto;padding-right:8px;margin-top:10px;}
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:10px;border:1px solid #eef2ff;margin-bottom:10px;background:#fefefe;}
+.thumb{width:160px;height:100px;overflow:hidden;border-radius:8px;}
+.thumb img{width:100%;height:100%;object-fit:cover;}
+.meta{flex:1;}
+.meta h4{margin-bottom:6px;}
+.meta p{margin-bottom:6px;color:#475569;}
+.tiny{font-size:13px;color:#94a3b8;}
+.status{padding:6px 10px;border-radius:999px;font-weight:700;font-size:13px;}
+.pending{background:#fff7ed;color:#92400e;border:1px solid #fff2d8;}
+.verified{background:#ecfdf5;color:#065f46;border:1px solid #d1fae5;}
+.solved{background:#eef2ff;color:#075985;border:1px solid #dbeafe;}
+.rejected{background:#fee2e2;color:#7f1d1d;border:1px solid #fed7d7;}
+.vote-btn{background:#3b82f6;margin-right:6px;}
+.vote-btn:hover{background:#2563eb;}
+@media(max-width:980px){.grid{grid-template-columns:1fr;}.sidebar{position:relative;width:100%;height:auto;}.main{margin-left:0;width:100%;}}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+<h2>Municipality</h2>
+<a href="#addCitizen">Add Citizenship</a>
+<a href="#addNotice">Add Notice</a>
+<a href="#viewIssues">View Issues</a>
+<a href="#manageWardCodes">Add Ward Codes</a>
+<button class="logout" id="logoutBtn">Logout</button>
+</div>
+
+<div class="main">
+<div class="header">
+  <div class="brand">Khairahani Municipality Dashboard</div>
+  <div class="tiny">Admin Panel</div>
+</div>
+
+<div class="grid">
+
+  <!-- Add Citizenship -->
+  <div class="card" id="addCitizen">
+    <h3>Add Citizenship Number</h3>
+    <label>Citizenship Number</label>
+    <input type="text" id="citizenshipNumber" placeholder="Enter number">
+    <label>Name</label>
+    <input type="text" id="citizenName" placeholder="Enter name">
+    <button id="addCitizenBtn">Add Citizen</button>
+  </div>
+
+  <!-- Add Notice -->
+  <div class="card" id="addNotice">
+    <h3>Add Notice</h3>
+    <label>Title</label>
+    <input type="text" id="noticeTitle" placeholder="Notice title">
+    <label>Description</label>
+    <textarea id="noticeDesc" rows="3" placeholder="Notice description"></textarea>
+    <label>Image</label>
+    <input type="file" id="noticeImage" accept="image/*">
+    <button id="submitNotice">Upload Notice</button>
+  </div>
+
+  <!-- View Issues -->
+  <div class="card" id="viewIssues" style="grid-column:1 / -1;">
+    <h3>Reported Issues</h3>
+    <div id="issuesList" class="list">Loading issues...</div>
+  </div>
+
+  <!-- Add Ward Codes -->
+  <div class="card" id="manageWardCodes" style="grid-column:1 / -1;">
+    <h3>Add Ward Codes</h3>
+    <label>Ward ID</label>
+    <input type="text" id="wardId" placeholder="Enter ward ID (e.g., 1)">
+    <label>Ward Code</label>
+    <input type="text" id="wardCode" placeholder="Enter ward code (e.g., ward1234)">
+    <button id="addWardCodeBtn">Add Ward Code</button>
+    <div id="wardCodeList" class="list"></div>
+  </div>
+
+</div>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCpJP1ese1PRYMgedPmHHQQW6l-T0BApmQ",
+  authDomain: "khairahani-579b8.firebaseapp.com",
+  projectId: "khairahani-579b8",
+  storageBucket: "khairahani-579b8.firebasestorage.app",
+  messagingSenderId: "235886644176",
+  appId: "1:235886644176:web:9fc2d2361796484876c7d5"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const addCitizenBtn = document.getElementById('addCitizenBtn');
+const submitNoticeBtn = document.getElementById('submitNotice');
+const issuesListEl = document.getElementById('issuesList');
+const addWardCodeBtn = document.getElementById('addWardCodeBtn');
+const wardCodeList = document.getElementById('wardCodeList');
+const logoutBtn = document.getElementById('logoutBtn');
+
+// Add Citizen
+addCitizenBtn.onclick = async () => {
+  const number = document.getElementById('citizenshipNumber').value.trim();
+  const name = document.getElementById('citizenName').value.trim();
+  if (!number || !name) return alert("Fill all fields!");
+  await setDoc(doc(db, "citizenshipNumbers", number), { name, number });
+  alert("Citizen added!");
+  document.getElementById('citizenshipNumber').value = '';
+  document.getElementById('citizenName').value = '';
+};
+
+// Add Notice
+submitNoticeBtn.onclick = async () => {
+  const title = document.getElementById('noticeTitle').value;
+  const desc = document.getElementById('noticeDesc').value;
+  const file = document.getElementById('noticeImage').files[0];
+  if (!title || !desc) return alert("Enter all fields!");
+  let imageUrl = null;
+  if (file) {
+    const form = new FormData();
+    form.append('image', file);
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=2824512fdd255a0bb3d8883bd6f90652`, { method: 'POST', body: form });
+    const json = await res.json();
+    imageUrl = json.data.url;
+  }
+  await addDoc(collection(db, "notices"), { title, description: desc, imageUrl, date: new Date() });
+  alert("Notice uploaded!");
+  document.getElementById('noticeTitle').value = '';
+  document.getElementById('noticeDesc').value = '';
+  document.getElementById('noticeImage').value = '';
+};
+
+// Load Issues with Approve/Reject and Vote Count
+async function loadIssues() {
+  const snap = await getDocs(collection(db, 'problems'));
+  issuesListEl.innerHTML = '';
+  snap.forEach(d => {
+    const data = d.data();
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `
+      <div class="thumb"><img src="${data.imageUrl || 'https://via.placeholder.com/400x200?text=Issue'}"></div>
+      <div class="meta">
+        <h4>${data.category || 'Issue'}</h4>
+        <p>${data.description || ''}</p>
+        <div class="status ${data.status || 'pending'}">${data.status || 'pending'}</div>
+        <p>Votes: ${data.voteCount || 0}</p>
+        <button class="vote-btn" onclick="updateIssueStatus('${d.id}','approved')">Approve</button>
+        <button class="vote-btn" onclick="updateIssueStatus('${d.id}','rejected')">Reject</button>
+        <button class="vote-btn" style="background:#ef4444" onclick="deleteIssue('${d.id}')">Delete</button>
+      </div>`;
+    issuesListEl.appendChild(div);
+  });
+}
+window.deleteIssue = async (id) => {
+  if(confirm("Are you sure you want to delete this issue?")) {
+    await deleteDoc(doc(db, 'problems', id));
+    alert("Issue deleted!");
+    loadIssues();
+  }
+};
+
+
+
+window.updateIssueStatus = async (id, newStatus) => {
+  await updateDoc(doc(db, 'problems', id), { status: newStatus });
+  loadIssues();
+};
+loadIssues();
+
+// Add Ward Code
+addWardCodeBtn.onclick = async () => {
+  const wardId = document.getElementById('wardId').value.trim();
+  const wardCode = document.getElementById('wardCode').value.trim();
+  if (!wardId || !wardCode) return alert("Fill both fields!");
+  await setDoc(doc(db, "ward_codes", wardId), { code: wardCode, active: true });
+  alert("Ward code added!");
+  loadWardCodes();
+  document.getElementById('wardId').value = '';
+  document.getElementById('wardCode').value = '';
+};
+
+// Load Ward Codes
+async function loadWardCodes() {
+  const snap = await getDocs(collection(db, 'ward_codes'));
+  wardCodeList.innerHTML = '';
+  snap.forEach(d => {
+    const data = d.data();
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = `<div class="meta"><h4>Ward ${d.id}</h4><p>Code: ${data.code}</p><div class="tiny">${data.active ? 'Active' : 'Inactive'}</div></div>`;
+    wardCodeList.appendChild(div);
+  });
+}
+loadWardCodes();
+
+logoutBtn.onclick = () => { window.location.href = 'login.html'; };
+</script>
+</body>
+</html>

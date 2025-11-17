@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Citizen Dashboard — Khairahani</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; font-family:"Poppins",sans-serif; }
+body { background:#f4f6fb; color:#0f172a; display:flex; min-height:100vh; }
+
+/* Sidebar */
+.sidebar { width:250px; background:linear-gradient(180deg,#0f172a,#0b1220); color:#fff; height:100vh; position:fixed; left:0; top:0; padding:20px; display:flex; flex-direction:column; }
+.sidebar h2 { text-align:center; margin-bottom:20px; color:#7dd3fc; }
+.sidebar a { color:#e6eef7; text-decoration:none; padding:10px; border-radius:8px; display:block; margin-bottom:8px; transition:.18s; }
+.sidebar a:hover { background:rgba(255,255,255,0.04); transform:translateX(6px); }
+.sidebar .logout { margin-top:auto; background:#ef4444; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:600; transition:.2s; }
+.sidebar .logout:hover { background:#dc2626; }
+
+/* Main */
+.main { margin-left:270px; padding:24px; width:calc(100% - 270px); overflow:auto; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+.brand { font-size:20px; font-weight:700; }
+
+/* Grid layout */
+.grid { display:grid; grid-template-columns: 1fr 1fr; gap:18px; }
+.card { background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px rgba(9,30,63,0.06); }
+
+/* Form elements */
+label { display:block; margin:8px 0 6px; font-weight:600; color:#0f172a; }
+input[type="text"], textarea, input[type="file"], select { width:100%; padding:10px; border-radius:8px; border:1px solid #e6eef7; margin-bottom:10px; }
+button { background:#0ea5a0; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+button.secondary { background:#3b82f6; }
+button:hover { opacity:.9; }
+
+/* Lists */
+.list { max-height:60vh; overflow:auto; padding-right:8px; margin-top:10px; }
+.item { display:flex; gap:12px; align-items:flex-start; padding:12px; border-radius:10px; border:1px solid #eef2ff; margin-bottom:10px; background:#fefefe; }
+.thumb { width:160px; height:100px; background:#f3f4f6; border-radius:8px; overflow:hidden; flex-shrink:0; }
+.thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.meta { flex:1; }
+.meta h4 { margin-bottom:6px; }
+.meta p { margin-bottom:6px; color:#475569; }
+.muted { color:#94a3b8; font-size:13px; }
+.tiny { font-size:13px; color:#475569; }
+.voteBtn { background:#3b82f6; padding:6px 10px; margin-top:6px; font-size:13px; border-radius:6px; cursor:pointer; color:#fff; font-weight:600; }
+.voteBtn:hover { background:#2563eb; }
+
+/* Status tags */
+.status { padding:6px 10px; border-radius:999px; font-weight:700; font-size:13px; }
+.pending { background:#fff7ed; color:#92400e; border:1px solid #fff2d8; }
+.verified { background:#ecfdf5; color:#065f46; border:1px solid #d1fae5; }
+.rejected { background:#fee2e2; color:#7f1d1d; border:1px solid #fed7d7; }
+.solved { background:#eef2ff; color:#075985; border:1px solid #dbeafe; }
+
+/* Map container */
+#pickMap, #issuesMap { width:100%; height:300px; border-radius:12px; margin-top:12px; }
+
+/* Responsive */
+@media (max-width:980px) {
+  .grid { grid-template-columns:1fr; }
+  .sidebar { position:relative; width:100%; height:auto; padding:14px; }
+  .main { margin-left:0; width:100%; padding:14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+<h2>Citizen Dashboard</h2>
+<a href="#report">Report Problem</a>
+<a href="#issues">View Issues</a>
+<a href="#notices">Notices</a>
+<button class="logout" id="logoutBtn">Logout</button>
+</div>
+
+<div class="main">
+<div class="header">
+  <div class="brand">Khairahani Municipality</div>
+  <div class="muted">Welcome, <span id="userName">Citizen</span></div>
+</div>
+
+<div class="grid">
+
+<!-- Report Problem -->
+<div class="card" id="report">
+<h3>Report a Problem</h3>
+<label>Category</label>
+<select id="problemCategory">
+  <option value="Road">Road</option>
+  <option value="Electricity">Electricity</option>
+  <option value="Water">Water</option>
+  <option value="Health Post">Health Post</option>
+</select>
+<label>Description</label>
+<textarea id="problemDesc" rows="3"></textarea>
+<label>Upload Image</label>
+<input type="file" id="problemImage" accept="image/*" />
+<label>Pick Location</label>
+<div id="pickMap"></div>
+<button id="submitProblem">Submit</button>
+</div>
+
+<!-- Notices -->
+<div class="card" id="notices">
+<h3>Notices</h3>
+<div id="noticesList" class="list">Loading notices...</div>
+</div>
+
+<!-- Issues -->
+<div class="card" id="issues" style="grid-column:1 / -1;">
+<h3>Reported Issues</h3>
+<div id="issuesList" class="list">Loading issues...</div>
+<h4>All Issues Map</h4>
+<div id="issuesMap"></div>
+</div>
+
+</div> <!-- grid -->
+</div> <!-- main -->
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+// Firebase config
+const firebaseConfig = {
+apiKey: "AIzaSyCpJP1ese1PRYMgedPmHHQQW6l-T0BApmQ",
+authDomain: "khairahani-579b8.firebaseapp.com",
+projectId: "khairahani-579b8",
+storageBucket: "khairahani-579b8.firebasestorage.app",
+messagingSenderId: "235886644176",
+appId: "1:235886644176:web:9fc2d2361796484876c7d5"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+// UI elements
+const noticesList = document.getElementById('noticesList');
+const issuesListEl = document.getElementById('issuesList');
+const logoutBtn = document.getElementById('logoutBtn');
+const submitBtn = document.getElementById('submitProblem');
+let pickMap, pickMarker, issuesMap;
+
+// ------------------ Initialize Maps & Load Data ------------------
+window.addEventListener('DOMContentLoaded', () => {
+    // Pick Location Map
+    pickMap = new google.maps.Map(document.getElementById("pickMap"), { center:{lat:27.55,lng:84.45}, zoom:12 });
+    pickMap.addListener('click', (e) => {
+        if(pickMarker) pickMarker.setMap(null);
+        pickMarker = new google.maps.Marker({ position:e.latLng, map:pickMap });
+        pickMarker.lat = e.latLng.lat();
+        pickMarker.lng = e.latLng.lng();
+    });
+
+    // Issues Map
+    issuesMap = new google.maps.Map(document.getElementById("issuesMap"), { center:{lat:27.55,lng:84.45}, zoom:12 });
+
+    // Load Notices and Issues
+    loadNotices();
+    loadIssues();
+});
+
+// ------------------ Load Notices ------------------
+async function loadNotices() {
+    noticesList.innerHTML='Loading...';
+    try{
+        const genSnap=await getDocs(collection(db,'notices'));
+        const wardSnap=await getDocs(collection(db,'wardNotices'));
+        noticesList.innerHTML='';
+        [...genSnap.docs,...wardSnap.docs].forEach(d=>{
+            const data=d.data();
+            const div=document.createElement('div');
+            div.className='item';
+            div.innerHTML=`<div class="thumb"><img src="${data.imageUrl||'https://via.placeholder.com/400x200?text=Notice'}"/></div>
+            <div class="meta"><h4>${data.title||'Untitled'}</h4><p>${data.description||''}</p>
+            <div class="tiny muted">${data.date?new Date(data.date.seconds?data.date.seconds*1000:data.date).toLocaleString():''}</div></div>`;
+            noticesList.appendChild(div);
+        });
+        if(!noticesList.firstChild) noticesList.innerHTML='<div class="tiny muted">No notices found.</div>';
+    } catch(err){ noticesList.innerHTML='Failed to load.'; console.error(err);}
+}
+
+// ------------------ Load Issues ------------------
+async function loadIssues() {
+    issuesListEl.innerHTML='Loading...';
+    issuesMap = new google.maps.Map(document.getElementById("issuesMap"), { center:{lat:27.55,lng:84.45}, zoom:12 });
+    try{
+        const snap = await getDocs(collection(db,'problems'));
+        issuesListEl.innerHTML='';
+        snap.forEach(d=>{
+            const data=d.data();
+            const div=document.createElement('div');
+            div.className='item';
+            const hasVoted = data.voters?.includes('dummyCitizenID'); // replace with logged-in ID
+            div.innerHTML=`<div class="thumb"><img src="${data.imageUrl||'https://via.placeholder.com/400x200?text=Issue'}"/></div>
+            <div class="meta"><h4>${data.category||'Issue'}</h4><p>${data.description||''}</p>
+            <div class="status ${data.status||'pending'}">${data.status||'pending'}</div>
+            <div class="tiny muted">Votes: ${data.votes||0}</div>
+            <button class="voteBtn" ${hasVoted?'disabled':'id="voteBtn_'+d.id+'"'}>${hasVoted?'Voted':'Vote'}</button></div>`;
+            issuesListEl.appendChild(div);
+
+            if(!hasVoted){
+                document.getElementById('voteBtn_'+d.id).onclick = async()=>{
+                    const docRef=doc(db,'problems',d.id);
+                    await updateDoc(docRef,{votes:(data.votes||0)+1, voters:[...(data.voters||[]),'dummyCitizenID']});
+                    loadIssues();
+                }
+            }
+
+            if(data.location?.lat && data.location?.lng){
+                new google.maps.Marker({ position:{lat:data.location.lat,lng:data.location.lng}, map:issuesMap, title:data.category });
+            }
+        });
+        if(!issuesListEl.firstChild) issuesListEl.innerHTML='<div class="tiny muted">No issues found.</div>';
+    } catch(err){ issuesListEl.innerHTML='Failed to load.'; console.error(err);}
+}
+
+// ------------------ Submit Problem ------------------
+submitBtn.onclick = async ()=>{
+    const cat = document.getElementById('problemCategory').value;
+    const desc = document.getElementById('problemDesc').value;
+    const file = document.getElementById('problemImage').files[0];
+    if(!desc){ alert('Add description'); return; }
+    let imageUrl=null;
+    if(file){
+        const form = new FormData(); form.append('image', file);
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=2824512fdd255a0bb3d8883bd6f90652`, {method:'POST', body:form});
+        const json = await res.json(); imageUrl=json.data.url;
+    }
+    const lat=pickMarker?.lat||null, lng=pickMarker?.lng||null;
+    await addDoc(collection(db,'problems'),{category:cat, description:desc, imageUrl, status:'pending', votes:0, voters:[], timestamp:new Date(), location:{lat,lng}});
+    alert('Problem reported!');
+    document.getElementById('problemDesc').value=''; document.getElementById('problemImage').value=null;
+    if(pickMarker) pickMarker.setMap(null); pickMarker=null;
+    loadIssues();
+}
+
+// ------------------ Logout ------------------
+logoutBtn.onclick = async()=>{ await signOut(auth); window.location.href='login.html'; }
+
+</script>
+
+<!-- Google Maps -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDfV7vPwik6JZGvSAYUBcPTIqeP7ujNKV4" async defer></script>
+
+</body>
+</html>

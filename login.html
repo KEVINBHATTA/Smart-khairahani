@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login | Khairahani Municipality</title>
+  <link rel="stylesheet" href="login.css" />
+  <!-- Firebase App (required) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"></script>
+
+  <!-- Firebase Authentication -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"></script>
+
+  <script src="firebase.js"></script> <!-- your custom Firebase code -->
+
+</head>
+<body>
+
+  <div class="login-container">
+    <h2>Login Portal</h2>
+
+    <form id="loginForm">
+      <label for="role">Login As</label>
+      <select id="role" required>
+        <option value="citizen">Citizen</option>
+        <option value="ward">Ward</option>
+        <option value="municipality">Municipality</option>
+      </select>
+
+      <div id="formFields"></div>
+
+      <button type="submit" class="login-btn">Login</button>
+      <p id="message" class="message"></p>
+    </form>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBvpzCT0Buw9DwvIOFw-ndWbjNlId0mym0",
+  authDomain: "growx-more.firebaseapp.com",
+  projectId: "growx-more",
+  storageBucket: "growx-more.firebasestorage.app",
+  messagingSenderId: "650882173754",
+  appId: "1:650882173754:web:24edd80fe83731ffc69e03",
+  measurementId: "G-5E58GBS8V8"
+    };
+
+// Initialize Firebase
+
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const roleSelect = document.getElementById('role');
+    const formFields = document.getElementById('formFields');
+    const message = document.getElementById('message');
+
+    // Load default citizen form
+    updateFormFields('citizen');
+
+    roleSelect.addEventListener('change', (e) => {
+      updateFormFields(e.target.value);
+    });
+
+    function updateFormFields(role) {
+      if (role === 'citizen') {
+        formFields.innerHTML = `
+          <label>Email</label>
+          <input type="email" id="email" placeholder="Enter your email" required />
+          <label>Password</label>
+          <input type="password" id="password" placeholder="Enter your password" required />
+        `;
+      } else if (role === 'ward') {
+        formFields.innerHTML = `
+          <label>Ward No</label>
+          <input type="text" id="wardNo" placeholder="Enter your ward number" required />
+          <label>Ward Code</label>
+          <input type="password" id="wardCode" placeholder="Enter ward code" required />
+        `;
+      } else if (role === 'municipality') {
+        formFields.innerHTML = `
+          <label>Email</label>
+          <input type="email" id="muniEmail" placeholder="Enter municipality email" required />
+          <label>Municipality Code</label>
+          <input type="password" id="muniCode" placeholder="Enter municipality code" required />
+        `;
+      }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      message.textContent = "";
+      message.className = "message";
+
+      const role = roleSelect.value;
+
+      try {
+        if (role === "citizen") {
+          const email = document.getElementById("email").value;
+          const password = document.getElementById("password").value;
+          await signInWithEmailAndPassword(auth, email, password);
+          message.textContent = "Citizen login successful ✅";
+          message.classList.add("success");
+          window.location.href = "citizen-dashboard.html";
+
+        } else if (role === "ward") {
+          const wardNo = document.getElementById("wardNo").value.trim();
+          const wardCode = document.getElementById("wardCode").value.trim();
+
+          // Document ID = wardNo (1,2,3...)
+          const docRef = doc(db, "ward_codes", wardNo);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists() && docSnap.data().active && docSnap.data().code === wardCode) {
+            message.textContent = "Ward login successful ✅";
+            message.classList.add("success");
+            window.location.href = "ward-dashboard.html";
+          } else {
+            throw new Error("Invalid ward code or ward not found!");
+          }
+
+        } else if (role === "municipality") {
+          const muniEmail = document.getElementById("muniEmail").value.trim();
+          const muniCode = document.getElementById("muniCode").value.trim();
+
+          const docRef = doc(db, "municipality_codes", muniEmail);
+          const docSnap = await getDoc(docRef);
+
+          if (docSnap.exists() && docSnap.data().active && docSnap.data().code === muniCode) {
+            message.textContent = "Municipality login successful ✅";
+            message.classList.add("success");
+            window.location.href = "municipality-dashboard.html";
+          } else {
+            throw new Error("Invalid municipality code or not found!");
+          }
+        }
+
+      } catch (error) {
+        message.textContent = error.message;
+        message.classList.add("error");
+      }
+    });
+  </script>
+</body>
+</html>

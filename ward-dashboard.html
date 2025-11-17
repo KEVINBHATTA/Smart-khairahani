@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ward Dashboard — Khairahani</title>
+<style>
+* {
+     box-sizing:border-box;
+    margin:0;
+     padding:0;
+     font-family:"Poppins",sans-serif; }
+
+body {
+     background:#f4f6fb; color:#0f172a; display:flex; min-height:100vh; }
+
+/* Sidebar */
+.sidebar { width:250px; background:linear-gradient(180deg,#0f172a,#0b1220); color:#fff; height:100vh; position:fixed; left:0; top:0; padding:20px;
+     display:flex; flex-direction:column; }
+.sidebar h2 { text-align:center; margin-bottom:20px; color:#7dd3fc; }
+.sidebar a { color:#e6eef7; text-decoration:none; padding:10px; border-radius:8px; display:block; margin-bottom:8px; transition:.18s; }
+.sidebar a:hover { background:rgba(255,255,255,0.04); transform:translateX(6px); }
+.sidebar .logout { margin-top:auto; background:#ef4444; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:600; transition:.2s; }
+.sidebar .logout:hover { background:#dc2626; }
+
+/* Main */
+.main { margin-left:270px; padding:24px; width:calc(100% - 270px); overflow:auto; }
+.header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+.brand { font-size:20px; font-weight:700; }
+
+/* Grid layout */
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.card { background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px rgba(9,30,63,0.06); }
+
+/* Form elements */
+label { display:block; margin:8px 0 6px; font-weight:600; color:#0f172a; }
+input[type="text"], textarea, input[type="file"] { width:100%; padding:10px; border-radius:8px; border:1px solid #e6eef7; margin-bottom:10px; }
+button { background:#0ea5a0; color:white; border:none; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600; }
+button.secondary { background:#3b82f6; }
+button:hover { opacity:.9; }
+
+/* Lists */
+.list { max-height:60vh; overflow:auto; padding-right:8px; margin-top:10px; }
+.item { display:flex; gap:12px; align-items:flex-start; padding:12px; border-radius:10px; border:1px solid #eef2ff; margin-bottom:10px; background:#fefefe; }
+.thumb { width:160px; height:100px; background:#f3f4f6; border-radius:8px; overflow:hidden; flex-shrink:0; }
+.thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.meta { flex:1; }
+.meta h4 { margin-bottom:6px; }
+.meta p { margin-bottom:6px; color:#475569; }
+.muted { color:#94a3b8; font-size:13px; }
+.tiny { font-size:13px; color:#475569; }
+
+/* Status tags */
+.status { padding:6px 10px; border-radius:999px; font-weight:700; font-size:13px; }
+.pending { background:#fff7ed; color:#92400e; border:1px solid #fff2d8; }
+.verified { background:#ecfdf5; color:#065f46; border:1px solid #d1fae5; }
+.rejected { background:#fee2e2; color:#7f1d1d; border:1px solid #fed7d7; }
+.solved { background:#eef2ff; color:#075985; border:1px solid #dbeafe; }
+
+/* Responsive */
+@media (max-width:980px) {
+  .grid { grid-template-columns:1fr; }
+  .sidebar { position:relative; width:100%; height:auto; padding:14px; }
+  .main { margin-left:0; width:100%; padding:14px; }
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+<h2>Ward Dashboard</h2>
+<a href="#addNotice">Add Notice</a>
+<a href="#viewNotices">View Notices</a>
+<a href="#viewIssues">View Issues</a>
+<button class="logout" id="logoutBtn">Logout</button>
+</div>
+
+<div class="main">
+<div class="header">
+  <div class="brand">Khairahani Municipality</div>
+  <div class="muted">Welcome, <span id="wardName">Ward Officer</span></div>
+</div>
+
+<div class="grid">
+
+<!-- Add Notice -->
+<div class="card" id="addNotice">
+<h3>Add a Notice</h3>
+<label>Title</label>
+<input type="text" id="noticeTitle" placeholder="Notice Title" />
+<label>Description</label>
+<textarea id="noticeDesc" rows="3" placeholder="Notice Description"></textarea>
+<label>Image</label>
+<input type="file" id="noticeImage" accept="image/*" />
+<button id="submitNotice">Upload Notice</button>
+</div>
+
+<!-- View Notices -->
+<div class="card" id="viewNotices">
+<h3>All Notices</h3>
+<div id="noticesList" class="list">Loading notices...</div>
+</div>
+
+<!-- View Issues -->
+<div class="card" id="viewIssues" style="grid-column:1 / -1;">
+<h3>Reported Issues</h3>
+<div id="issuesList" class="list">Loading issues...</div>
+</div>
+
+</div> <!-- grid -->
+</div> <!-- main -->
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// Firebase config
+const firebaseConfig = {
+apiKey: "AIzaSyCpJP1ese1PRYMgedPmHHQQW6l-T0BApmQ",
+authDomain: "khairahani-579b8.firebaseapp.com",
+projectId: "khairahani-579b8",
+storageBucket: "khairahani-579b8.firebasestorage.app",
+messagingSenderId: "235886644176",
+appId: "1:235886644176:web:9fc2d2361796484876c7d5"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// UI Elements
+const noticesList = document.getElementById('noticesList');
+const issuesListEl = document.getElementById('issuesList');
+const submitNoticeBtn = document.getElementById('submitNotice');
+const logoutBtn = document.getElementById('logoutBtn');
+
+// ------------------ Load Notices ------------------
+async function loadNotices() {
+    noticesList.innerHTML='Loading...';
+    try {
+        const genSnap = await getDocs(collection(db,'notices'));      // Municipality Notices
+        const wardSnap = await getDocs(collection(db,'wardNotices')); // Ward Notices
+        noticesList.innerHTML='';
+        [...genSnap.docs,...wardSnap.docs].forEach(d=>{
+            const data=d.data();
+            const div=document.createElement('div');
+            div.className='item';
+            div.innerHTML=`<div class="thumb"><img src="${data.imageUrl||'https://via.placeholder.com/400x200?text=Notice'}"/></div>
+            <div class="meta"><h4>${data.title||'Untitled'}</h4>
+            <p>${data.description||''}</p>
+            <div class="tiny muted">${data.date?new Date(data.date.seconds?data.date.seconds*1000:data.date).toLocaleString():''}</div></div>`;
+            noticesList.appendChild(div);
+        });
+        if(!noticesList.firstChild) noticesList.innerHTML='<div class="tiny muted">No notices found.</div>';
+    } catch(err){ noticesList.innerHTML='Failed to load.'; console.error(err);}
+}
+
+// ------------------ Load Issues ------------------
+async function loadIssues() {
+    issuesListEl.innerHTML='Loading...';
+    try {
+        const snap = await getDocs(collection(db,'problems'));
+        issuesListEl.innerHTML='';
+        snap.forEach(d=>{
+            const data=d.data();
+            const div=document.createElement('div');
+            div.className='item';
+            div.innerHTML=`<div class="thumb"><img src="${data.imageUrl||'https://via.placeholder.com/400x200?text=Issue'}"/></div>
+            <div class="meta"><h4>${data.category||'Issue'}</h4><p>${data.description||''}</p>
+            <div class="status ${data.status||'pending'}">${data.status||'pending'}</div>
+            <div class="tiny muted">Votes: ${data.votes||0}</div></div>`;
+            issuesListEl.appendChild(div);
+        });
+        if(!issuesListEl.firstChild) issuesListEl.innerHTML='<div class="tiny muted">No issues found.</div>';
+    } catch(err){ issuesListEl.innerHTML='Failed to load.'; console.error(err);}
+}
+
+// ------------------ Submit Notice ------------------
+submitNoticeBtn.onclick = async()=>{
+    const title = document.getElementById('noticeTitle').value;
+    const desc = document.getElementById('noticeDesc').value;
+    const file = document.getElementById('noticeImage').files[0];
+    if(!title || !desc){ alert('Please enter title and description'); return; }
+    let imageUrl=null;
+    if(file){
+        const form = new FormData(); form.append('image', file);
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=2824512fdd255a0bb3d8883bd6f90652`, {method:'POST', body:form});
+        const json = await res.json(); imageUrl=json.data.url;
+    }
+    await addDoc(collection(db,'wardNotices'),{title, description:desc, imageUrl, date:new Date()});
+    alert('Notice uploaded!');
+    document.getElementById('noticeTitle').value=''; document.getElementById('noticeDesc').value=''; document.getElementById('noticeImage').value=null;
+    loadNotices();
+}
+
+// ------------------ Logout ------------------
+logoutBtn.onclick = ()=>{ window.location.href='login.html'; }
+
+// Initial Load
+loadNotices();
+loadIssues();
+
+</script>
+</body>
+</html>
