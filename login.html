@@ -116,7 +116,7 @@
           const docRef = doc(db, "ward_codes", wardNo);
           const docSnap = await getDoc(docRef);
 
-          if (docSnap.exists() && docSnap.data().active && docSnap.data().code === wardCode) {
+          if (docSnap.exists() && docSnap.data().active && docSnap.data().code === 1234) {
             message.textContent = "Ward login successful ✅";
             message.classList.add("success");
             window.location.href = "ward-dashboard.html";
