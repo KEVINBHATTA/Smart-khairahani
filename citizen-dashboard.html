@@ -123,13 +123,14 @@ import { getFirestore, collection, getDocs, addDoc, updateDoc, doc } from "https
 import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 // Firebase config
-const firebaseConfig = {
-apiKey: "AIzaSyCpJP1ese1PRYMgedPmHHQQW6l-T0BApmQ",
-authDomain: "khairahani-579b8.firebaseapp.com",
-projectId: "khairahani-579b8",
-storageBucket: "khairahani-579b8.firebasestorage.app",
-messagingSenderId: "235886644176",
-appId: "1:235886644176:web:9fc2d2361796484876c7d5"
+ const firebaseConfig = {
+  apiKey: "AIzaSyACqDImd94I898cdbdAybpKMiNG-35PvAQ",
+  authDomain: "growx-more-669a8.firebaseapp.com",
+  projectId: "growx-more-669a8",
+  storageBucket: "growx-more-669a8.firebasestorage.app",
+  messagingSenderId: "586168201573",
+  appId: "1:586168201573:web:6fce33a5105cbf0bc9b18c",
+  measurementId: "G-GD98R91MKW"
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -218,6 +219,7 @@ async function loadIssues() {
 
 // ------------------ Submit Problem ------------------
 submitBtn.onclick = async ()=>{
+  alert("Your Problem is Uploaded sucessfully");
     const cat = document.getElementById('problemCategory').value;
     const desc = document.getElementById('problemDesc').value;
     const file = document.getElementById('problemImage').files[0];
